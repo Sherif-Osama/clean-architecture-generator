@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 
 set -Eeuo pipefail
@@ -50,9 +49,62 @@ case "$PROJECT_NAME" in
         ;;
 esac
 
-# Prevent overwriting an existing directory.
-if [[ -e "$PROJECT_NAME" || -L "$PROJECT_NAME" ]]; then
-    echo "Error: Directory '$PROJECT_NAME' already exists."
+# Ask where to create the project. The current directory is the default.
+DEFAULT_PARENT_DIR="$(pwd -P)"
+read -r -p "Enter parent directory path [$DEFAULT_PARENT_DIR]: " TARGET_PARENT_DIR
+TARGET_PARENT_DIR="${TARGET_PARENT_DIR:-$DEFAULT_PARENT_DIR}"
+
+# Expand the current user's home-directory shorthand without evaluating input.
+case "$TARGET_PARENT_DIR" in
+    "~")
+        TARGET_PARENT_DIR="${HOME:?Error: HOME is not set.}"
+        ;;
+    "~/"*)
+        TARGET_PARENT_DIR="${HOME:?Error: HOME is not set.}/${TARGET_PARENT_DIR:2}"
+        ;;
+esac
+
+# Accept native Windows paths when running in Git Bash or another Cygwin shell.
+if command -v cygpath >/dev/null 2>&1; then
+    case "$TARGET_PARENT_DIR" in
+        [A-Za-z]:\\*|[A-Za-z]:/*)
+            TARGET_PARENT_DIR="$(cygpath -u "$TARGET_PARENT_DIR")"
+            ;;
+    esac
+fi
+
+if [[ -L "$TARGET_PARENT_DIR" && ! -e "$TARGET_PARENT_DIR" ]]; then
+    echo "Error: The selected path is a broken symbolic link."
+    exit 1
+fi
+
+if [[ ! -e "$TARGET_PARENT_DIR" ]]; then
+    echo "Error: Directory '$TARGET_PARENT_DIR' does not exist."
+    echo "Enter an existing directory path and try again."
+    exit 1
+fi
+
+if [[ ! -d "$TARGET_PARENT_DIR" ]]; then
+    echo "Error: '$TARGET_PARENT_DIR' is not a directory."
+    exit 1
+fi
+
+if [[ ! -w "$TARGET_PARENT_DIR" || ! -x "$TARGET_PARENT_DIR" ]]; then
+    echo "Error: No write permission for directory '$TARGET_PARENT_DIR'."
+    exit 1
+fi
+
+if ! TARGET_PARENT_DIR="$(cd -- "$TARGET_PARENT_DIR" && pwd -P)"; then
+    echo "Error: Could not access directory '$TARGET_PARENT_DIR'."
+    exit 1
+fi
+
+PROJECT_OUTPUT_PATH="${TARGET_PARENT_DIR%/}/$PROJECT_NAME"
+
+# Do not replace an existing directory, file, or symbolic link.
+if [[ -e "$PROJECT_OUTPUT_PATH" || -L "$PROJECT_OUTPUT_PATH" ]]; then
+    echo "Error: '$PROJECT_OUTPUT_PATH' already exists."
+    echo "Choose a different project name or parent directory."
     exit 1
 fi
 
@@ -61,8 +113,7 @@ PROJECT_DIR_CREATED=false
 cleanup_on_failure() {
     local exit_code=$?
     if [[ $exit_code -ne 0 && $PROJECT_DIR_CREATED == true ]]; then
-        cd ..
-        rm -rf -- "$PROJECT_NAME"
+        rm -rf -- "$PROJECT_OUTPUT_PATH"
     fi
     return "$exit_code"
 }
@@ -81,15 +132,16 @@ SOLUTION_FILE="${PROJECT_NAME}.sln"
 
 echo
 echo "Project name: $PROJECT_NAME"
+echo "Parent directory: $TARGET_PARENT_DIR"
 echo
 
 # ==========================================
 # Create the solution directory.
 # ==========================================
 
-mkdir "$PROJECT_NAME"
+mkdir -- "$PROJECT_OUTPUT_PATH"
 PROJECT_DIR_CREATED=true
-cd "$PROJECT_NAME"
+cd -- "$PROJECT_OUTPUT_PATH"
 
 # ==========================================
 # Create the solution.
