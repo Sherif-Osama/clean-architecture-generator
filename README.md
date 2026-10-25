@@ -23,4 +23,4 @@ chmod +x create-clean-architecture.sh
 ./create-clean-architecture.sh
 ```
 
-Enter a project name, then enter the parent directory where you want the project created. Press Enter to use the current directory. The script checks that the path exists, is a writable directory, and does not already contain an item with the project name. It also accepts `~/...` paths and native Windows paths when running in Git Bash.
+Enter a project name, then enter the parent directory where you want the project created. Press Enter to use the suggested current directory. Paths can be entered with or without matching quotes; `~/...` and native Windows paths are also supported in Git Bash. The script checks that the path exists, is a writable directory, and does not already contain an item with the project name.

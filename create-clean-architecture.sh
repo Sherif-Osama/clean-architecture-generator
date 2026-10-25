@@ -52,6 +52,18 @@ esac
 # Ask where to create the project. The current directory is the default.
 DEFAULT_PARENT_DIR="$(pwd -P)"
 read -r -p "Enter parent directory path [$DEFAULT_PARENT_DIR]: " TARGET_PARENT_DIR
+
+# Strip matching quotes commonly included when copying a path from Windows.
+if (( ${#TARGET_PARENT_DIR} >= 2 )); then
+    PATH_FIRST_CHAR="${TARGET_PARENT_DIR:0:1}"
+    PATH_LAST_CHAR="${TARGET_PARENT_DIR: -1}"
+    if [[ "$PATH_FIRST_CHAR" == '"' && "$PATH_LAST_CHAR" == '"' ]] ||
+        [[ "$PATH_FIRST_CHAR" == "'" && "$PATH_LAST_CHAR" == "'" ]]; then
+        TARGET_PARENT_DIR="${TARGET_PARENT_DIR:1:${#TARGET_PARENT_DIR}-2}"
+    fi
+fi
+
+# Pressing Enter keeps the suggested current directory.
 TARGET_PARENT_DIR="${TARGET_PARENT_DIR:-$DEFAULT_PARENT_DIR}"
 
 # Expand the current user's home-directory shorthand without evaluating input.
